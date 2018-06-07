@@ -1,0 +1,274 @@
+﻿
+@{
+    ViewBag.Title = "Mapping PDF fields with XML Nodes";
+}
+
+<h2>Map Fields with Xml Nodes</h2>
+
+<style>
+
+    .draggable {
+        background: transparent;
+    }
+
+    .droppable {
+        height: 30px;
+        width: 70% !important;
+        background: #c1c1c1;
+        margin: 5px;
+        display: inline-block;
+        border-color: #357ebd;
+        border-radius: 5px;
+    }
+
+    ul {
+        list-style-type: none;
+    }
+
+    li {
+        list-style-type: none;
+    }
+</style>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="col-md-3">
+            <div class="panel panel-primary">
+                <div class="panel-heading panel-head">PDF Fields</div>
+                <div class="panel-body" style="height:475px;overflow-y:auto;">
+                    @foreach (var item in ViewBag.TextFound)
+                    {
+                        <div class="row">
+                            <div class="col-lg-1"></div>
+                            <div class="draggable col-lg-10" style="cursor:pointer;border: 1px solid #ccc;border-radius:5px;">
+                                @item
+                            </div>
+                        </div>
+                        <br />
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-md-9">
+            <div class="panel panel-primary">
+                <div class="panel-heading panel-head">XML Nodes</div>
+                <div class="panel-body" style="height:475px;width:100%;overflow:auto;">
+                    <div id="formView">
+                        <textarea id="textarea" style="display:none">
+                            @ViewBag.data
+                        </textarea>
+                    </div>
+
+                    <div id="treeView">
+                        <ul>
+                            <li></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <button class="btn btn-sm btn-primary pull-right" id="btnGetMappings" style="display:none">Save Mapping</button>
+            <button class="btn btn-sm btn-primary pull-right" id="btnPreview">Preview</button>
+        </div>
+    </div>
+</div>
+
+<div id="pdfFieldsModal" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">PDF Fields</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="panel panel-primary">
+                        <div class="panel-heading panel-head">Preview PDF</div>
+                        <div class="panel-body">
+                           
+                            <div id="divPreviewPDF"></div>
+                        </div>
+                    </div>
+                </div>
+                @*<div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="MapFields();">Map</button>
+                    <button type="button" class="btn btn-primary" onclick="CloseModal();">Close</button>
+                </div>*@
+            </div>
+
+        </div>
+    </div>
+
+@section Scripts {
+
+    @Scripts.Render("~/bundles/jqueryval")
+    <script>
+        //$(document).ready(function () {
+        //    $('#formView').hide();
+        //    $('#treeView').show();
+        //    var tree = $.parseXML($('#textarea').val());
+        //    traverse($('#treeView li'), tree.firstChild)
+        //    $('<b style="cursor:default;" class="pull-left"> – <\/b>').prependTo('#treeView li:has(ul)').click(function () {
+        //        var sign = $(this).text()
+        //        if (sign == " – ")
+        //            $(this).text(' + ').next().children().hide()
+        //        else
+        //            $(this).text(' – ').next().children().show()
+        //    });
+
+
+        //    function traverse(node, tree) {
+        //        var children = $(tree).children()
+        //        if (!children.length > 0) {
+        //            node.append('<div class="row hasValues"><div class="col-lg-3">' + tree.nodeName + '<\/div><div class="col-lg-9 droppable"></div></div>')
+        //        } else {
+        //            node.append(tree.nodeName)
+        //        }
+        //        if (children.length) {
+        //            var ul = $("<ul>").appendTo(node)
+        //            children.each(function () {
+        //                var li = $("<li>").appendTo(ul)
+        //                traverse(li, this)
+        //            })
+        //        } else {
+        //            $('<ul><li>' + '</li><\/ul>').appendTo(node)
+        //        }
+        //    }
+
+        //    $('.draggable').draggable({
+        //        revert: "invalid",
+        //        stack: ".draggable",
+        //        helper: 'clone'
+        //    });
+        //    $('.droppable').droppable({
+        //        accept: ".draggable",
+        //        drop: function (event, ui) {
+        //            var droppable = $(this).addClass('col-lg-3');
+        //            var draggable = ui.draggable;
+        //            var drag = $('.droppable').has(ui.draggable).length ? draggable : draggable.clone().draggable({
+        //                revert: "invalid",
+        //                stack: ".draggable",
+        //                helper: 'clone'
+        //            });
+        //            drag.appendTo(droppable);
+        //            draggable.css({
+        //                float: 'left'
+        //            });
+        //        }
+        //    });
+        //});
+
+        $(document).ready(function () {
+            $('#formView').hide();
+            $('#treeView').show();
+            var tree = $.parseXML($('#textarea').val());
+            //Sushma : parameter added for the function call, initially set to blank
+            traverse($('#treeView li'), tree.firstChild, "")
+            $('<b style="cursor:default;" class="pull-left"> – <\/b>').prependTo('#treeView li:has(ul)').click(function () {
+                var sign = $(this).text()
+                if (sign == " – ")
+                    $(this).text(' + ').next().children().hide()
+                else
+                    $(this).text(' – ').next().children().show()
+            });
+
+            //Sushma : added parameter prtname to maintain the parent tree string
+            function traverse(node, tree, prtname) {
+                var children = $(tree).children()
+                //Sushma : add the traversal of parent nodes - Start
+                var parentname = $(tree).parent()
+                parentname.each(function () {
+                    prtname = prtname + '/' + tree.nodeName;
+                })
+                // Sushma : add the traversal of parent nodes - End
+                if (!children.length > 0) {
+                    // Sushma : removing the repeat of the last node.
+                    var treevalue = prtname.replace(tree.nodeName, "")
+                    //Sushma : added hidden text into the Div
+                    node.append('<div class="row hasValues"><div class="col-lg-3"><text hidden="">' + treevalue.substring(1, treevalue.length) + '</text>' + tree.nodeName + '<\/div><div class="col-lg-9 droppable"></div></div>')
+                } else {
+
+                    node.append(tree.nodeName)
+                }
+                if (children.length) {
+                    var ul = $("<ul>").appendTo(node)
+                    children.each(function () {
+                        var li = $("<li>").appendTo(ul)
+                        //Sushma : parameter added for the function call.
+                        traverse(li, this, prtname)
+                    })
+                } else {
+                    $('<ul><li>' + '</li><\/ul>').appendTo(node)
+                }
+            }
+
+            $('.draggable').draggable({
+                revert: "invalid",
+                stack: ".draggable",
+                helper: 'clone'
+            });
+            $('.droppable').droppable({
+                accept: ".draggable",
+                drop: function (event, ui) {
+                    var droppable = $(this).addClass('col-lg-3');
+                    var draggable = ui.draggable;
+                    var drag = $('.droppable').has(ui.draggable).length ? draggable : draggable.clone().draggable({
+                        revert: "invalid",
+                        stack: ".draggable",
+                        helper: 'clone'
+                    });
+                    drag.appendTo(droppable);
+                    draggable.css({
+                        float: 'left'
+                    });
+                }
+            });
+        });
+
+        $("#btnGetMappings").click(function () {
+            var items = document.getElementsByClassName('hasValues');
+            var PDFMapping = new Array();
+            for (var i = 0; i < items.length; i++) {
+                PDFMapping.push({ "PdfField": items[i].children[1].innerText, "XmlField": items[i].children[0].innerText });
+            }
+
+            var PDFMapping = JSON.stringify({ 'PDFMapping': PDFMapping });
+
+            $.ajax({
+                type: 'POST',
+                url: '@Url.Action("SavePDFMapping")',
+                cache: false,
+                contentType: "application/json; charset=utf-8",
+                dataType: 'json',
+                data: PDFMapping,
+                success: function (response) {
+
+                }
+            })
+            //console.log(jsonParse);
+        });
+
+        $('#btnPreview').on("click", function () {
+            var items = document.getElementsByClassName('hasValues');
+            var PDFMapping = new Array();
+            for (var i = 0; i < items.length; i++) {
+                PDFMapping.push({ "PdfField": items[i].children[1].innerText, "XmlField": items[i].children[0].innerText });
+            }
+
+            var PDFMapping = JSON.stringify({ 'PDFMapping': PDFMapping });
+
+            $.ajax({
+                type: 'POST',
+                url: '@Url.Action("PreviewPDFWithMappedFields")',
+                cache: false,
+                contentType: "application/json; charset=utf-8",
+                dataType: 'json',
+                data: PDFMapping,
+                success: function (response) {
+                    $("#pdfFieldsModal").modal('show');
+                    $('#divPreviewPDF').html(response);
+                }
+            })
+
+        });
+
+
+    </script>
+}
