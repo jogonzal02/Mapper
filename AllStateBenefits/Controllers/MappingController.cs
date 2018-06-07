@@ -8,18 +8,22 @@ using System.Text;
 using System.Web;
 using System.Web.Mvc;
 using System.Xml;
+using AllStateBenefits.Models;
 using XMLParsingToList.Models;
-using Syncfusion.Pdf.Parsing;
+using System.Xml.Linq;
+using System.Xml.XPath;
+using System.Globalization;
 using static AllStateBenefits.Models.RextandText;
 
-namespace XMLParsingToList.Controllers
+namespace AllStateBenefits.Controllers
 {
     public class MappingController : Controller
     {
         WritePDFFile objWriteFile = new WritePDFFile();
-        public static string PDFPath = @"C:\Users\jag27\Documents\Personal\Infosys\AllState\Projects\XmlPdfMapper2\XmlPdfMapper\XmlPdfMapper\Assets\ABJ45A1AL.pdf";
-        public static string XMLPath = @"C:\Users\jag27\Downloads\TestSample.xml";
-        public string outputPdf = @"C:\Users\jag27\Documents\Personal\Infosys\AllState\Projects\XmlPdfMapper2\XmlPdfMapper\XmlPdfMapper\Assets\output.pdf";
+        //public static string PDFPath = @"C:\Users\jag27\Documents\Personal\Infosys\AllState\Projects\XmlPdfMapper2\XmlPdfMapper\XmlPdfMapper\Assets\ABJ45A1AL.pdf";
+        public static string PDFPath = @"C:\Users\jag27\Documents\Personal\Infosys\AllState\Projects\XmlPdfMapper2\XmlPdfMapper\XmlPdfMapper\Assets\ABJ45A1AL EOI L70 PA - Dynamic XML Format-Save as PDF.pdf";
+        public static string XMLPath = @"C:\Users\jag27\Documents\Personal\Infosys\AllState\Projects\XmlPdfMapper2\XmlPdfMapper\XmlPdfMapper\Assets\TestSample.xml";
+        public static string outputPdf = @"C:\Users\jag27\Documents\Personal\Infosys\AllState\Projects\XmlPdfMapper2\XmlPdfMapper\XmlPdfMapper\Assets\SampleOutput.pdf";
         // GET: Mapping
         public ActionResult Index()
         {
@@ -70,28 +74,111 @@ namespace XMLParsingToList.Controllers
         [HttpPost]
         public ActionResult PreviewPDFWithMappedFields(List<PDFMapping> PDFMapping)
         {
+
+            //THIS SHOULD BE REMOVED EVENTUALLY
+            //I am assuming that this method is going to receive a list of string that represent Xpaths found in the PDF nodes' name attribute 
+
+            List<string> paths = new List<string>() {
+                "Case_Location_Address_City","Case_location_application_people_person_IsDependent","Case_location_application_people_person_employee_monthlysalary",
+                "Case_Location_CallCenter"
+            };
+
+            List<string> xmlpath = new List<string>() {
+                "Case_Location_Address_City","Case_Location_Application_People_Person_IsDependent","Case_Location_Application_People_Person_Employee_MonthlySalary",
+                "Case_Location_CallCenter"
+            };
+
+
             PdfReader reader = new PdfReader(PDFPath);
             using (PdfStamper stamper = new PdfStamper(reader, new FileStream(outputPdf, FileMode.Create)))
             {
+
                 XfaForm form = new XfaForm(reader);
-                XmlDocument xmlDoc = new XmlDocument();
-                xmlDoc.Load(XMLPath);
 
-                //form.DatasetsNode.InnerXml = xmlDoc.InnerXml;
+                XElement xmlDoc = XElement.Load(XMLPath);
 
-                form.FindDatasetsNode("Cell1").InnerXml = PDFMapping[0].XmlField;
-                form.FindDatasetsNode("Cell2").InnerXml = PDFMapping[1].XmlField;
-                form.FindDatasetsNode("Cell3").InnerXml = PDFMapping[2].XmlField;
-                form.FindDatasetsNode("Cell5").InnerXml = PDFMapping[3].XmlField;
+                string xmllist = form.DomDocument.InnerXml;
+                XDocument doc = XDocument.Parse(xmllist);
+
+
+                for (var field = 0; field < paths.Count - 1; field++)
+                {
+
+                    //Steps to find the node from the data xml file using its xPath
+                    var arr = xmlpath[field].Split('_');
+
+                    var realPath = String.Join("/", arr);
+
+                    XElement data = xmlDoc.XPathSelectElement("//" + realPath);
+
+                    //Determine the type of input the 
+
+                    XElement pdfNode = (from elem in doc.Descendants()
+                                        where elem.Attribute("name") != null &&
+                                        elem.Attribute("name").Value.Contains(paths[field])
+                                        select elem).First();
+
+                    string val;
+
+                    if (pdfNode.Name.ToString().Contains("field"))
+                    {
+                        //Is the field node a checkbox
+                        List<XElement> ckButton = (from elem in pdfNode.Descendants()
+                                                   where elem.Name.ToString().Contains("checkButton")
+                                                   select elem).ToList();
+                        if (ckButton.Count > 0)
+                        {
+                            //Is the value stored in the xml data node written true/false(incorrect format) or 1/0 (correct format)
+                            if (data.Value.ToUpper() == "FALSE") val = "0";
+                            else if (data.Value.ToUpper() == "TRUE") val = "1";
+                            else val = data.Value;
+                        }
+
+                        else// then it is a normal field
+                        {
+                            //Is the field node an numeric input or text input
+                            List<XElement> numField = (from elem in pdfNode.Descendants()
+                                                       where elem.Name.ToString().Contains("numericEdit")
+                                                       select elem).ToList();
+
+                            //Im not sure what to put in here, bc I am able to fill in numeric fields without any issues
+                            if (numField.Count > 0) //Its a numeric field
+                            {
+
+                            }
+
+                            else //Its a text field
+                            {
+
+                            }
+
+                            val = data.Value;
+
+                        }
+
+                    }
+                    else //then it must be a exclGroup
+                    {
+                        //I need to think about this more, since this node is an exclGroup and not a field node
+                        //I have to match of the xml node value with the fields stored in the exclGroup
+                        val = data.Value;
+                    }
+
+                    form.FindDatasetsNode(paths[field]).InnerXml = val;
+
+                }
 
                 form.Changed = true;
+
+
 
                 XfaForm.SetXfa(form, stamper.Reader, stamper.Writer);
             }
 
-            TempData["OutputPDF"] = outputPdf;
+            return Json("success", JsonRequestBehavior.AllowGet);
+            //TempData["OutputPDF"] = outputPdf;
 
-            return PartialView("_PreviewPDF");
+            //return PartialView("_PreviewPDF");
 
             //PdfStamper stamper = new PdfStamper(reader, new FileStream(Temp_PDF_Copy_Path, FileMode.CreateNew, FileAccess.ReadWrite));
             //AcroFields form = stamper.AcroFields;
@@ -135,9 +222,14 @@ namespace XMLParsingToList.Controllers
             //outputPdf = null;         
         }
 
+        public ActionResult PreviewMappedPDF()
+        {
+            return View();
+        }
+
         public ActionResult GetPDFPreview()
         {
-            string file = TempData["OutputPDF"].ToString();
+            string file = outputPdf;
             FileStream fs = new FileStream(file, FileMode.Open, FileAccess.Read);
 
             return File(fs, "application/pdf");

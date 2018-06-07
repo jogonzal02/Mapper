@@ -11,7 +11,7 @@ using System.Text;
 using iTextSharp.text.pdf.parser;
 using System.Text.RegularExpressions;
 using System.Linq;
-using System.Diagnostics;
+using AllStateBenefits.Models;
 
 namespace XMLParsingToList.Models
 {
@@ -338,7 +338,7 @@ namespace XMLParsingToList.Models
                 PdfReader pdfReader = new PdfReader(fileName);
                 PdfStamper pdfStamp = new PdfStamper(pdfReader, ms);
                 AcroFields fields = pdfStamp.AcroFields;
-                List<string> Keys = new List<string>();
+
                 //List<myKey> Keys1 = new List<myKey>();
                 //Boolean empty = true;
                 //foreach (var field in fields.Fields)
@@ -354,31 +354,58 @@ namespace XMLParsingToList.Models
 
                 XfaForm xfa = fields.Xfa;
                 string xmllst = xfa.DomDocument.InnerXml;
-                Debug.WriteLine(xmllst); 
                 XDocument doc = XDocument.Parse(xmllst);
+
+                List<string> Keys = new List<string>();
+                List<XElement> list = new List<XElement>();
+
+                var tableCell = getTableCells(doc);
+                var checkBoxes = getCheckBoxes(doc);
+                List<XElement> result = new List<XElement>();
+
+                result.AddRange(tableCell[1]);
+                result.AddRange(checkBoxes[1]);
+
+                list.AddRange(tableCell[0]);
+                list.AddRange(checkBoxes[0]);
+
+                result.AddRange(getRemainingFields(doc, list));
+
+                foreach (var item in result)
+                {
+
+                    Keys.Add(item.Attribute("name").Value);
+                }
 
                 //Keys = (from el in doc.Descendants()
                 //             where el.Name.ToString().Contains("text") && el.Value != ""
                 //             select el.Value).ToList();
 
-                List<XElement> childList= (from el in doc.Descendants()
-                                            where el.Name.ToString().Contains("subform") && el.Value != ""
-                                            select el).ToList();
 
-                foreach (XElement item in childList)
-                {
-                    XAttribute att = item.Attribute("name");
-                    if (att.Value.ToLower() == "tbcoverageinfo")
-                    {
-                        Keys =
-                                 (from el in item.Descendants()
-                                  where el.Name.ToString().Contains("text") && el.Value != ""
-                                  select el.Value).Distinct().ToList();
 
-                        break;
-                    }                  
 
-                }
+                //-----------------------------------------------------------------------------------
+
+                //List<XElement> childList= (from el in doc.Descendants()
+                //                            where el.Name.ToString().Contains("subform") && el.Value != ""
+                //                            select el).ToList();
+
+                //foreach (XElement item in childList)
+                //{
+                //    XAttribute att = item.Attribute("name");
+                //    if (att.Value.ToLower() == "tbcoverageinfo")
+                //    {
+                //        Keys =
+                //                 (from el in item.Descendants()
+                //                  where el.Name.ToString().Contains("text") && el.Value != ""
+                //                  select el.Value).Distinct().ToList();
+
+                //        break;
+                //    }                  
+
+                //}
+
+                //-------------------------------------------------------------------------------------
 
                 //List<string> childList =
                 //            (from el in doc.Descendants()
@@ -432,53 +459,53 @@ namespace XMLParsingToList.Models
             string pdfValues = sb.ToString();
         }
 
-        //public List<myKey> getKeys(AcroFields af)
-        //{
-        //    XfaForm xfa = af.Xfa;
-        //    List<myKey> Keys = new List<myKey>();
-        //    foreach (var field in af.Fields)
-        //    {
-        //        Keys.Add(new myKey(field.Key, af.GetField(field.Key)));
-        //    }
-        //    if (xfa.XfaPresent)
-        //    {
-        //        System.Xml.XmlNode n = xfa.DatasetsNode.FirstChild;
-        //        Keys.AddRange(BFS(n));
-        //    }
-        //    return Keys;
-        //}
+        public List<myKey> getKeys(AcroFields af)
+        {
+            XfaForm xfa = af.Xfa;
+            List<myKey> Keys = new List<myKey>();
+            foreach (var field in af.Fields)
+            {
+                Keys.Add(new myKey(field.Key, af.GetField(field.Key)));
+            }
+            if (xfa.XfaPresent)
+            {
+                System.Xml.XmlNode n = xfa.DatasetsNode.FirstChild;
+                Keys.AddRange(BFS(n));
+            }
+            return Keys;
+        }
 
-        //public List<myKey> BFS(System.Xml.XmlNode n)
-        //{
-        //    List<myKey> Keys = new List<myKey>();
-        //    System.Xml.XmlNode n2 = n;
+        public List<myKey> BFS(System.Xml.XmlNode n)
+        {
+            List<myKey> Keys = new List<myKey>();
+            System.Xml.XmlNode n2 = n;
 
-        //    if (n == null) return Keys;
+            if (n == null) return Keys;
 
-        //    if (n.FirstChild == null)
-        //    {
-        //        n2 = n;
-        //        if ((n2.Name.ToCharArray(0, 1))[0] == '#') n2 = n2.ParentNode;
-        //        while ((n2 = n2.NextSibling) != null)
-        //        {
-        //            Keys.Add(new myKey(n2.Name, n2.Value));
-        //        }
-        //    }
+            if (n.FirstChild == null)
+            {
+                n2 = n;
+                if ((n2.Name.ToCharArray(0, 1))[0] == '#') n2 = n2.ParentNode;
+                while ((n2 = n2.NextSibling) != null)
+                {
+                    Keys.Add(new myKey(n2.Name, n2.Value));
+                }
+            }
 
-        //    if (n.FirstChild != null)
-        //    {
-        //        n2 = n.FirstChild;
-        //        Keys.AddRange(BFS(n2));
-        //    }
-        //    n2 = n;
-        //    while ((n2 = n2.NextSibling) != null)
-        //    {
-        //        Keys.AddRange(BFS(n2));
-        //    }
-        //    return Keys;
-        //}
+            if (n.FirstChild != null)
+            {
+                n2 = n.FirstChild;
+                Keys.AddRange(BFS(n2));
+            }
+            n2 = n;
+            while ((n2 = n2.NextSibling) != null)
+            {
+                Keys.AddRange(BFS(n2));
+            }
+            return Keys;
+        }
 
-        
+
 
         public string RemoveLastWords(string input, int numberOfLastWordsToBeRemoved, char delimitter)
         {
@@ -488,6 +515,101 @@ namespace XMLParsingToList.Models
             words = words.Reverse().ToArray();
             string output = String.Join(delimitter.ToString(), words);
             return output;
+        }
+
+
+        public List<List<XElement>> getTableCells(XDocument doc)
+        {
+
+            List<List<XElement>> result = new List<List<XElement>>() {
+                new List<XElement>(), new List<XElement>()
+            };
+
+            List<XElement> list = (from elem in doc.Descendants()
+                                   where elem.Name.ToString().Contains("subform") && elem.Value != "" && elem.Attribute("layout") != null && elem.Attribute("layout").Value.Contains("table")
+                                   select elem).ToList();
+
+
+            foreach (var item in list)
+            {
+
+                List<XElement> header = (from elem in item.Descendants()
+                                         where elem.Parent.Name.ToString().Contains("subform") &&
+                                         elem.Parent.Attribute("name") != null &&
+                                         elem.Parent.Attribute("name").Value.Contains("Header") &&
+                                         elem.Name.ToString().Contains("draw")
+                                         select elem).ToList();
+
+
+                if (header.Count > 0)
+                {
+                    List<XElement> Cell = (from elem in item.Descendants()
+                                           where elem.Parent.Name.ToString().Contains("subform") && elem.Parent.Attribute("layout") != null &&
+                                           elem.Parent.Attribute("layout").Value.Contains("row") && elem.Name.ToString().Contains("field")
+
+                                           select elem).ToList();
+
+                    result[0].AddRange(Cell);
+
+                    for (int j = 0; j < Cell.Count; j++)
+                    {
+
+                        Cell[j].SetAttributeValue("name",
+                            header[j % header.Count].Value + " " + Cell[j].Parent.Attribute("name").Value);
+                    }
+
+                    result[1].AddRange(Cell);
+
+                }
+            }
+
+            return result;
+        }
+
+        public List<List<XElement>> getCheckBoxes(XDocument doc)
+        {
+            List<XElement> list = (from elem in doc.Descendants()
+                                   where elem.Name.ToString().Contains("exclGroup") && elem.Attribute("layout") != null &&
+                                   elem.Attribute("layout").Value.Contains("lr-tb") && elem.Attribute("name") != null
+                                   select elem).ToList();
+
+            List<List<XElement>> result = new List<List<XElement>>(2);
+
+            result.Add(list);
+
+            foreach (var item in list)
+            {
+
+                var siblings = item.ElementsBeforeSelf();
+                if (siblings.Count() > 0)
+                {
+                    XElement drawSibling = siblings.Last();
+                    item.SetAttributeValue("name", drawSibling.Value + " " + item.Attribute("name").Value);
+                }
+            }
+            result.Add(list);
+            return result;
+        }
+
+        public List<XElement> getRemainingFields(XDocument doc, List<XElement> fields)
+        {
+
+            List<string> result = new List<string>();
+
+            List<XElement> list = (from elem in doc.Descendants()
+                                   where elem.Name.ToString().Contains("field") && elem.Attribute("name") != null &&
+                                   !elem.Attribute("name").Value.Contains("CurrentPage") && !elem.Attribute("name").Value.Contains("PageCount") && !elem.Parent.Name.ToString().Contains("exclGroup")
+
+                                   select elem).ToList();
+
+            list = list.Except(fields).ToList();
+
+            //foreach (var item in list) {
+
+            //    result.Add(item.Attribute("name").Value);
+            //}
+
+            return list;
         }
 
         //public void ConvertXMLToList()

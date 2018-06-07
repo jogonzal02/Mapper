@@ -73,28 +73,28 @@
 </div>
 
 <div id="pdfFieldsModal" class="modal fade" role="dialog">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h4 class="modal-title">PDF Fields</h4>
-                </div>
-                <div class="modal-body">
-                    <div class="panel panel-primary">
-                        <div class="panel-heading panel-head">Preview PDF</div>
-                        <div class="panel-body">
-                           
-                            <div id="divPreviewPDF"></div>
-                        </div>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title">Preview PDF</h4>
+            </div>
+            <div class="modal-body">
+                <div class="panel panel-primary">
+                    <div class="panel-heading panel-head">Preview PDF</div>
+                    <div class="panel-body">
+
+                        <div id="divPreviewPDF"></div>
                     </div>
                 </div>
-                @*<div class="modal-footer">
+            </div>
+            @*<div class="modal-footer">
                     <button type="button" class="btn btn-primary" onclick="MapFields();">Map</button>
                     <button type="button" class="btn btn-primary" onclick="CloseModal();">Close</button>
                 </div>*@
-            </div>
-
         </div>
+
     </div>
+</div>
 
 @section Scripts {
 
@@ -245,7 +245,8 @@
             //console.log(jsonParse);
         });
 
-        $('#btnPreview').on("click", function () {
+        $('#btnPreview').click(function () {
+
             var items = document.getElementsByClassName('hasValues');
             var PDFMapping = new Array();
             for (var i = 0; i < items.length; i++) {
@@ -261,11 +262,14 @@
                 contentType: "application/json; charset=utf-8",
                 dataType: 'json',
                 data: PDFMapping,
-                success: function (response) {
-                    $("#pdfFieldsModal").modal('show');
-                    $('#divPreviewPDF').html(response);
+                complete: function (response) {
+
+                    window.location.href = "/Mapping/PreviewMappedPDF";
+
+                    //$('#pdfFieldsModal').modal('show');
+                    //$('#divPreviewPDF').html(response);
                 }
-            })
+            });
 
         });
 
